@@ -93,9 +93,10 @@ app.post('/api/search', async (req, res) => {
 
       console.log(`[Apify] Buscando "${zona}" → ${searchUrl}`);
 
-      const run = await client.actor('igolaizola/idealista-scraper').call({
+      const run = await client.actor('crawlerbros/idealista-scraper').call({
         startUrls: [{ url: searchUrl }],
         maxItems: 25,
+        proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
       });
 
       const { items } = await client.dataset(run.defaultDatasetId).listItems();

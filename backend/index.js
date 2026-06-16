@@ -7,27 +7,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Precios medios €/m² actualizados enero 2026 (fuente: Idealista)
 const PRECIOS_MEDIA = {
-  'San Pedro de Alcántara': 3200,
-  'Nueva Andalucía': 4000,
-  'Benahavís': 3800,
-  'Estepona': 2800,
+  'San Pedro de Alcántara': 4800,
+  'Nueva Andalucía': 5600,
+  'Benahavís': 5200,
+  'Estepona': 3800,
 };
 
-// Agrupamos zonas por búsqueda en Apify (una sola llamada por municipio)
-const ZONA_A_MUNICIPIO = {
-  'San Pedro de Alcántara': 'Marbella',
-  'Nueva Andalucía': 'Marbella',
-  'Benahavís': 'Benahavís',
-  'Estepona': 'Estepona',
-};
-
-// Palabras clave para filtrar resultados por barrio/zona
-const ZONA_KEYWORDS = {
-  'San Pedro de Alcántara': ['san pedro', 'alcántara', 'alcantara'],
-  'Nueva Andalucía': ['nueva andalucía', 'nueva andalucia', 'nueva andaluc'],
-  'Benahavís': ['benahavís', 'benahavis'],
-  'Estepona': ['estepona'],
+// URLs reales de Idealista por zona (chalets = villas + adosados)
+const ZONA_URLS = {
+  'San Pedro de Alcántara': 'https://www.idealista.com/venta-viviendas/marbella/san-pedro-de-alcantara/con-chalets/',
+  'Nueva Andalucía':        'https://www.idealista.com/venta-viviendas/marbella/nueva-andalucia/con-chalets/',
+  'Benahavís':              'https://www.idealista.com/venta-viviendas/benahavis-malaga/con-chalets/',
+  'Estepona':               'https://www.idealista.com/venta-viviendas/estepona-malaga/con-chalets/',
 };
 
 function normalizeItem(item, zona) {
@@ -94,55 +87,27 @@ app.post('/api/search', async (req, res) => {
   try {
     let allItems = [];
 
-    // Agrupar zonas por municipio para evitar llamadas duplicadas
-    const municipios = {};
     for (const zona of zonas) {
-      const municipio = ZONA_A_MUNICIPIO[zona] || zona;
-      if (!municipios[municipio]) municipios[municipio] = [];
-      municipios[municipio].push(zona);
-    }
+      const searchUrl = ZONA_URLS[zona];
+      if (!searchUrl) continue;
 
-    for (const [municipio, zonasDelMunicipio] of Object.entries(municipios)) {
-      console.log(`[Apify] Buscando en "${municipio}"...`);
+      console.log(`[Apify] Buscando "${zona}" → ${searchUrl}`);
 
       const run = await client.actor('igolaizola/idealista-scraper').call({
-        operation: 'sale',
-        propertyType: 'homes',
-        location: municipio,
-        maxItems: 50,
+        startUrls: [{ url: searchUrl }],
+        maxItems: 25,
       });
 
       const { items } = await client.dataset(run.defaultDatasetId).listItems();
-      console.log(`[Apify] ${items.length} resultados en "${municipio}"`);
+      console.log(`[Apify] ${items.length} resultados en "${zona}"`);
 
       if (items.length > 0) {
-        console.log(`[DEBUG] Campos del primer item:`, Object.keys(items[0]));
+        console.log(`[DEBUG] Campos disponibles:`, Object.keys(items[0]));
         console.log(`[DEBUG] Primer item:`, JSON.stringify(items[0], null, 2));
       }
 
       for (const item of items) {
-        // Determinar a qué zona pertenece este item según su dirección
-        const direccion = (
-          (item.address || '') + ' ' +
-          (item.neighborhood || '') + ' ' +
-          (item.district || '') + ' ' +
-          (item.municipality || '')
-        ).toLowerCase();
-
-        let zonaAsignada = null;
-
-        for (const zona of zonasDelMunicipio) {
-          const keywords = ZONA_KEYWORDS[zona] || [zona.toLowerCase()];
-          if (keywords.some(kw => direccion.includes(kw))) {
-            zonaAsignada = zona;
-            break;
-          }
-        }
-
-        // Si no matchea ninguna zona concreta, asignamos la primera zona del municipio
-        if (!zonaAsignada) zonaAsignada = zonasDelMunicipio[0];
-
-        allItems.push(normalizeItem(item, zonaAsignada));
+        allItems.push(normalizeItem(item, zona));
       }
     }
 

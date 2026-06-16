@@ -14,12 +14,20 @@ const PRECIOS_MEDIA = {
   'Estepona': 2800,
 };
 
-// Nombres de zona tal como los entiende Idealista
-const ZONA_NOMBRES = {
-  'San Pedro de Alcántara': 'San Pedro de Alcántara, Marbella',
-  'Nueva Andalucía': 'Nueva Andalucía, Marbella',
+// Agrupamos zonas por búsqueda en Apify (una sola llamada por municipio)
+const ZONA_A_MUNICIPIO = {
+  'San Pedro de Alcántara': 'Marbella',
+  'Nueva Andalucía': 'Marbella',
   'Benahavís': 'Benahavís',
   'Estepona': 'Estepona',
+};
+
+// Palabras clave para filtrar resultados por barrio/zona
+const ZONA_KEYWORDS = {
+  'San Pedro de Alcántara': ['san pedro', 'alcántara', 'alcantara'],
+  'Nueva Andalucía': ['nueva andalucía', 'nueva andalucia', 'nueva andaluc'],
+  'Benahavís': ['benahavís', 'benahavis'],
+  'Estepona': ['estepona'],
 };
 
 function normalizeItem(item, zona) {
@@ -86,24 +94,55 @@ app.post('/api/search', async (req, res) => {
   try {
     let allItems = [];
 
+    // Agrupar zonas por municipio para evitar llamadas duplicadas
+    const municipios = {};
     for (const zona of zonas) {
-      const location = ZONA_NOMBRES[zona] || zona;
+      const municipio = ZONA_A_MUNICIPIO[zona] || zona;
+      if (!municipios[municipio]) municipios[municipio] = [];
+      municipios[municipio].push(zona);
+    }
+
+    for (const [municipio, zonasDelMunicipio] of Object.entries(municipios)) {
+      console.log(`[Apify] Buscando en "${municipio}"...`);
 
       const run = await client.actor('igolaizola/idealista-scraper').call({
         operation: 'sale',
         propertyType: 'homes',
-        location,
-        maxItems: 25,
+        location: municipio,
+        maxItems: 50,
       });
 
       const { items } = await client.dataset(run.defaultDatasetId).listItems();
+      console.log(`[Apify] ${items.length} resultados en "${municipio}"`);
 
       if (items.length > 0) {
-        console.log(`[DEBUG] Primer item de "${zona}":`, JSON.stringify(items[0], null, 2));
+        console.log(`[DEBUG] Campos del primer item:`, Object.keys(items[0]));
+        console.log(`[DEBUG] Primer item:`, JSON.stringify(items[0], null, 2));
       }
 
       for (const item of items) {
-        allItems.push(normalizeItem(item, zona));
+        // Determinar a qué zona pertenece este item según su dirección
+        const direccion = (
+          (item.address || '') + ' ' +
+          (item.neighborhood || '') + ' ' +
+          (item.district || '') + ' ' +
+          (item.municipality || '')
+        ).toLowerCase();
+
+        let zonaAsignada = null;
+
+        for (const zona of zonasDelMunicipio) {
+          const keywords = ZONA_KEYWORDS[zona] || [zona.toLowerCase()];
+          if (keywords.some(kw => direccion.includes(kw))) {
+            zonaAsignada = zona;
+            break;
+          }
+        }
+
+        // Si no matchea ninguna zona concreta, asignamos la primera zona del municipio
+        if (!zonaAsignada) zonaAsignada = zonasDelMunicipio[0];
+
+        allItems.push(normalizeItem(item, zonaAsignada));
       }
     }
 
@@ -129,10 +168,14 @@ app.post('/api/search', async (req, res) => {
       results: allItems,
       total: allItems.length,
       timestamp: new Date().toISOString(),
+      source: allItems.length > 0 ? 'idealista' : 'empty',
     });
   } catch (err) {
     console.error('Error en /api/search:', err);
-    res.status(500).json({ error: 'Error al obtener propiedades. Revisa el token de Apify y vuelve a intentarlo.' });
+    res.status(500).json({
+      error: 'Error al obtener propiedades.',
+      detail: err.message,
+    });
   }
 });
 

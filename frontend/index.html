@@ -241,6 +241,13 @@
 
       const data = await response.json();
       currentResults = data.results || [];
+
+      if (currentResults.length === 0) {
+        // Sin resultados reales → mostrar mock con aviso
+        showToast('Sin resultados en Idealista para estos filtros · Mostrando ejemplos');
+        currentResults = mockFilter(ALL_PROPS, filters);
+      }
+
       renderResults();
     } catch (err) {
       console.warn('Backend no disponible, usando datos mock:', err.message);

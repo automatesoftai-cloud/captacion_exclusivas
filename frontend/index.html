@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Buscador de Propiedades · Jonatan</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
@@ -12,10 +14,14 @@
     header h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: .5px; }
     header span { font-size: .85rem; opacity: .6; }
 
-    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 58px); }
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 0; min-height: calc(100vh - 58px); }
 
     /* SIDEBAR */
-    .sidebar { background: #fff; border-right: 1px solid #e5e5e5; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+    .sidebar { background: #fff; border-right: 1px solid #e5e5e5; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    #mapa-zonas { height: 220px; border-radius: 10px; border: 1px solid #e5e5e5; z-index: 0; }
+    .zona-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .zona-chip { font-size: .75rem; padding: 4px 10px; border-radius: 20px; border: 1.5px solid #ddd; background: #f8f8f8; color: #555; cursor: pointer; transition: all .15s; user-select: none; }
+    .zona-chip.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
     .sidebar h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
     label { font-size: .85rem; color: #444; display: block; margin-bottom: 6px; }
     .check-group { display: flex; flex-direction: column; gap: 8px; }
@@ -118,12 +124,8 @@
   <aside class="sidebar">
     <div>
       <h2>Zonas</h2>
-      <div class="check-group" style="margin-top:10px">
-        <label><input type="checkbox" value="San Pedro de Alcántara" checked> San Pedro de Alcántara</label>
-        <label><input type="checkbox" value="Nueva Andalucía" checked> Nueva Andalucía</label>
-        <label><input type="checkbox" value="Benahavís"> Benahavís</label>
-        <label><input type="checkbox" value="Estepona"> Estepona</label>
-      </div>
+      <div id="mapa-zonas" style="margin-top:10px"></div>
+      <div class="zona-chips" id="zona-chips"></div>
     </div>
 
     <div>
@@ -183,6 +185,87 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ── Mapa de zonas ───────────────────────────────────────────────────
+  const ZONAS_CONFIG = [
+    { nombre: 'San Pedro de Alcántara', lat: 36.4862, lng: -4.9850, activa: true },
+    { nombre: 'Nueva Andalucía',        lat: 36.5050, lng: -4.9320, activa: true },
+    { nombre: 'Benahavís',              lat: 36.5230, lng: -5.0500, activa: false },
+    { nombre: 'Estepona',               lat: 36.4258, lng: -5.1460, activa: false },
+  ];
+
+  let zonasSeleccionadas = new Set(ZONAS_CONFIG.filter(z => z.activa).map(z => z.nombre));
+  const marcadores = {};
+
+  function colorZona(activa) {
+    return activa ? '#1a1a2e' : '#ccc';
+  }
+
+  function initMapa() {
+    const map = L.map('mapa-zonas', { zoomControl: true, scrollWheelZoom: false })
+      .setView([36.48, -5.02], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 17,
+    }).addTo(map);
+
+    ZONAS_CONFIG.forEach(zona => {
+      const activa = zonasSeleccionadas.has(zona.nombre);
+      const circle = L.circleMarker([zona.lat, zona.lng], {
+        radius: 14,
+        fillColor: colorZona(activa),
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: activa ? 0.9 : 0.45,
+      }).addTo(map);
+
+      circle.bindTooltip(zona.nombre, { permanent: true, direction: 'top', offset: [0, -12], className: 'zona-tooltip' });
+
+      circle.on('click', () => toggleZona(zona.nombre, circle));
+      marcadores[zona.nombre] = circle;
+    });
+
+    // Añadir chips debajo del mapa
+    renderChips();
+  }
+
+  function toggleZona(nombre, circle) {
+    if (zonasSeleccionadas.has(nombre)) {
+      zonasSeleccionadas.delete(nombre);
+    } else {
+      zonasSeleccionadas.add(nombre);
+    }
+    const activa = zonasSeleccionadas.has(nombre);
+    circle.setStyle({
+      fillColor: colorZona(activa),
+      fillOpacity: activa ? 0.9 : 0.45,
+    });
+    renderChips();
+  }
+
+  function renderChips() {
+    const container = document.getElementById('zona-chips');
+    container.innerHTML = ZONAS_CONFIG.map(z => {
+      const activa = zonasSeleccionadas.has(z.nombre);
+      return `<span class="zona-chip ${activa ? 'active' : ''}" onclick="toggleChip('${z.nombre}')">${z.nombre}</span>`;
+    }).join('');
+  }
+
+  function toggleChip(nombre) {
+    const circle = marcadores[nombre];
+    toggleZona(nombre, circle);
+  }
+
+  function getZonasSeleccionadas() {
+    return [...zonasSeleccionadas];
+  }
+
+  // Añadir estilo tooltip de Leaflet
+  const style = document.createElement('style');
+  style.textContent = '.zona-tooltip { background: #1a1a2e; color: #fff; border: none; font-size: .72rem; font-weight: 600; padding: 3px 7px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }';
+  document.head.appendChild(style);
+
   // ── Datos mock de fallback ──────────────────────────────────────────
   const ALL_PROPS = [
     { id:'m1', titulo:'Villa con jardín a reformar', zona:'San Pedro de Alcántara', tipo:'Villa', m2:280, habitaciones:4, banos:3, ano:1990, precio:850000, precio_m2:3036, vs_media:-5.1, desc:'Amplia villa con parcela de 800m² en zona residencial tranquila. Necesita reforma integral.', caract:['Parcela 800m²','Piscina','Garaje x2'], fuente:'Mock', ref:'M001', url:'' },
@@ -210,8 +293,8 @@
 
   // ── Búsqueda ────────────────────────────────────────────────────────
   async function runSearch() {
-    const zonas = [...document.querySelectorAll('.check-group input:checked')].map(cb => cb.value);
-    if (!zonas.length) { showToast('Selecciona al menos una zona'); return; }
+    const zonas = getZonasSeleccionadas();
+    if (!zonas.length) { showToast('Selecciona al menos una zona en el mapa'); return; }
 
     const filters = {
       zonas,
@@ -409,6 +492,9 @@
         : '<p class="kanban-empty">Sin propiedades</p>';
     });
   }
+
+  // Inicializar mapa al cargar
+  window.addEventListener('load', initMapa);
 
   // ── Toast ────────────────────────────────────────────────────────────
   function showToast(msg) {

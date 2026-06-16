@@ -93,18 +93,23 @@ app.post('/api/search', async (req, res) => {
 
       console.log(`[Apify] Buscando "${zona}" → ${searchUrl}`);
 
+      console.log(`[Apify] Llamando actor con URL: ${searchUrl}`);
       const run = await client.actor('crawlerbros/idealista-scraper').call({
         startUrls: [{ url: searchUrl }],
+        location: 'marbella-malaga',
         maxItems: 25,
         proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
       });
 
+      console.log(`[Apify] Run status: ${run.status}, datasetId: ${run.defaultDatasetId}`);
       const { items } = await client.dataset(run.defaultDatasetId).listItems();
       console.log(`[Apify] ${items.length} resultados en "${zona}"`);
 
       if (items.length > 0) {
         console.log(`[DEBUG] Campos disponibles:`, Object.keys(items[0]));
         console.log(`[DEBUG] Primer item:`, JSON.stringify(items[0], null, 2));
+      } else {
+        console.log(`[WARN] 0 items devueltos. Run completo:`, JSON.stringify(run, null, 2));
       }
 
       for (const item of items) {

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buscador de Propiedades · Jonatan</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
+
+    header { background: #1a1a2e; color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: .5px; }
+    header span { font-size: .85rem; opacity: .6; }
+
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 58px); }
+
+    /* SIDEBAR */
+    .sidebar { background: #fff; border-right: 1px solid #e5e5e5; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+    .sidebar h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+    label { font-size: .85rem; color: #444; display: block; margin-bottom: 6px; }
+    .check-group { display: flex; flex-direction: column; gap: 8px; }
+    .check-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    select, input[type=number] { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: .9rem; background: #fafafa; }
+    .btn-search { background: #e84545; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: .95rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 4px; transition: background .2s; }
+    .btn-search:hover { background: #c73535; }
+    .btn-search:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* MAIN */
+    .main { padding: 24px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .toolbar span { font-size: .85rem; color: #666; }
+    .tab-bar { display: flex; gap: 8px; }
+    .tab { padding: 6px 16px; border-radius: 20px; font-size: .85rem; cursor: pointer; border: 1px solid #ddd; background: #fff; }
+    .tab.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+    /* CARD */
+    .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; transition: box-shadow .2s; }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+    .card-img { height: 160px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 2rem; }
+    .card-body { padding: 16px; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+    .card-title { font-size: .95rem; font-weight: 600; line-height: 1.3; }
+    .badge { font-size: .7rem; padding: 3px 8px; border-radius: 12px; white-space: nowrap; font-weight: 600; }
+    .badge-villa { background: #e8f4fd; color: #1a6eb5; }
+    .badge-adosado { background: #fef3e2; color: #b56a00; }
+    .zona { font-size: .78rem; color: #888; margin-bottom: 10px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    .stat { background: #f8f8f8; border-radius: 6px; padding: 6px 8px; }
+    .stat-label { font-size: .68rem; color: #999; }
+    .stat-value { font-size: .9rem; font-weight: 600; }
+    .vs-media { text-align: center; padding: 8px; border-radius: 8px; margin-bottom: 12px; }
+    .vs-media.below { background: #eafaf1; color: #1a7a42; }
+    .vs-media.above { background: #fdf0f0; color: #a33; }
+    .vs-media .pct { font-size: 1.4rem; font-weight: 700; }
+    .vs-media .label { font-size: .72rem; }
+    .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { padding: 7px 12px; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; border: none; transition: background .15s; }
+    .btn-pdf { background: #1a1a2e; color: #fff; }
+    .btn-pdf:hover { background: #2d2d4e; }
+    .btn-crm { background: #f0f0f0; color: #333; }
+    .btn-crm:hover { background: #e0e0e0; }
+    .btn-link { background: #e84545; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-link:hover { background: #c73535; }
+
+    /* ESTADO CRM */
+    .estado-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    .estado-nuevo { background: #3498db; }
+    .estado-contactado { background: #f39c12; }
+    .estado-visitado { background: #2ecc71; }
+    .estado-descartado { background: #e74c3c; }
+
+    /* KANBAN */
+    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .kanban-col { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; padding: 14px; }
+    .kanban-col h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid currentColor; }
+    .kanban-col.col-nuevo h3 { color: #3498db; border-color: #3498db; }
+    .kanban-col.col-contactado h3 { color: #f39c12; border-color: #f39c12; }
+    .kanban-col.col-visitado h3 { color: #2ecc71; border-color: #2ecc71; }
+    .kanban-col.col-descartado h3 { color: #e74c3c; border-color: #e74c3c; }
+    .kanban-item { background: #f8f8f8; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: .82rem; }
+    .kanban-item .k-title { font-weight: 600; margin-bottom: 4px; }
+    .kanban-item .k-precio { color: #555; }
+    .kanban-empty { color: #bbb; font-size: .8rem; text-align: center; padding: 20px 0; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: .88rem; z-index: 1000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+
+    /* EMPTY / LOADING */
+    .empty { text-align: center; padding: 60px 20px; color: #999; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+    .spinner { display: inline-block; width: 36px; height: 36px; border: 4px solid #eee; border-top-color: #e84545; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* PDF */
+    @media print {
+      header, .sidebar, .toolbar, .card-actions, .tab-bar { display: none !important; }
+      .layout { display: block; }
+      .main { padding: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .card { break-inside: avoid; border: none; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Buscador de Propiedades</h1>
+    <span>Costa del Sol · Oportunidades de reforma</span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR FILTROS -->
+  <aside class="sidebar">
+    <div>
+      <h2>Zonas</h2>
+      <div class="check-group" style="margin-top:10px">
+        <label><input type="checkbox" value="San Pedro de Alcántara" checked> San Pedro de Alcántara</label>
+        <label><input type="checkbox" value="Nueva Andalucía" checked> Nueva Andalucía</label>
+        <label><input type="checkbox" value="Benahavís"> Benahavís</label>
+        <label><input type="checkbox" value="Estepona"> Estepona</label>
+      </div>
+    </div>
+
+    <div>
+      <label>Tipo de propiedad</label>
+      <select id="sel-tipo">
+        <option value="Ambos">Villa + Adosado</option>
+        <option value="Villa">Solo Villas</option>
+        <option value="Adosado">Solo Adosados</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Precio máximo (€)</label>
+      <input type="number" id="inp-precio" value="1500000" step="50000" min="100000" />
+    </div>
+
+    <div>
+      <label>Estado</label>
+      <select id="sel-estado">
+        <option value="reforma">Solo oportunidades reforma</option>
+        <option value="cualquiera">Cualquier estado</option>
+      </select>
+    </div>
+
+    <button class="btn-search" id="btn-buscar" onclick="runSearch()">Buscar propiedades</button>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="toolbar">
+      <span id="resultado-count">Usa los filtros para buscar propiedades</span>
+      <div class="tab-bar">
+        <div class="tab active" onclick="setTab('resultados', this)">Resultados</div>
+        <div class="tab" onclick="setTab('crm', this)">Panel CRM</div>
+      </div>
+    </div>
+
+    <div id="view-resultados">
+      <div class="empty" id="empty-state">
+        <div class="icon">🏠</div>
+        <p>Selecciona tus filtros y pulsa <strong>Buscar propiedades</strong></p>
+      </div>
+      <div class="grid" id="grid-results"></div>
+    </div>
+
+    <div id="view-crm" style="display:none">
+      <div class="kanban" id="kanban-board">
+        <div class="kanban-col col-nuevo"><h3>Nuevo</h3><div id="k-nuevo"><p class="kanban-empty">Sin propiedades</p></div></div>
+        <div class="kanban-col col-contactado"><h3>Contactado</h3><div id="k-contactado"><p class="kanban-empty">Sin propiedades</p></div></div>
+        <div class="kanban-col col-visitado"><h3>Visitado</h3><div id="k-visitado"><p class="kanban-empty">Sin propiedades</p></div></div>
+        <div class="kanban-col col-descartado"><h3>Descartado</h3><div id="k-descartado"><p class="kanban-empty">Sin propiedades</p></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Datos mock de fallback ──────────────────────────────────────────
+  const ALL_PROPS = [
+    { id:'m1', titulo:'Villa con jardín a reformar', zona:'San Pedro de Alcántara', tipo:'Villa', m2:280, habitaciones:4, banos:3, ano:1990, precio:850000, precio_m2:3036, vs_media:-5.1, desc:'Amplia villa con parcela de 800m² en zona residencial tranquila. Necesita reforma integral.', caract:['Parcela 800m²','Piscina','Garaje x2'], fuente:'Mock', ref:'M001', url:'' },
+    { id:'m2', titulo:'Adosado esquina en urbanización', zona:'Nueva Andalucía', tipo:'Adosado', m2:190, habitaciones:3, banos:2, ano:1998, precio:680000, precio_m2:3579, vs_media:-10.5, desc:'Adosado en esquina con terraza de 40m². Cocina y baños a reformar.', caract:['Terraza 40m²','Piscina comunitaria','2 plazas garaje'], fuente:'Mock', ref:'M002', url:'' },
+    { id:'m3', titulo:'Villa de lujo con vistas al golf', zona:'Nueva Andalucía', tipo:'Villa', m2:450, habitaciones:5, banos:4, ano:2005, precio:2100000, precio_m2:4667, vs_media:16.7, desc:'Espectacular villa en primera línea de golf con acabados de lujo.', caract:['Vistas golf','Piscina privada','Domótica'], fuente:'Mock', ref:'M003', url:'' },
+    { id:'m4', titulo:'Casa de pueblo a reformar', zona:'Benahavís', tipo:'Villa', m2:220, habitaciones:4, banos:2, ano:1985, precio:720000, precio_m2:3273, vs_media:-13.9, desc:'Casa con mucho potencial en el pueblo más exclusivo de la Costa del Sol.', caract:['Vistas montaña','Jardín privado'], fuente:'Mock', ref:'M004', url:'' },
+    { id:'m5', titulo:'Adosado moderno reformado', zona:'Estepona', tipo:'Adosado', m2:160, habitaciones:3, banos:2, ano:2010, precio:420000, precio_m2:2625, vs_media:-6.3, desc:'Adosado de obra reciente en urbanización con seguridad 24h.', caract:['Reformado 2022','Piscina comunitaria'], fuente:'Mock', ref:'M005', url:'' },
+  ];
+
+  // ── Estado ──────────────────────────────────────────────────────────
+  const BACKEND_URL = 'http://localhost:3000';
+  let currentResults = [];
+  let crmData = JSON.parse(localStorage.getItem('crmData') || '{}');
+  let activeTab = 'resultados';
+
+  // ── Tabs ────────────────────────────────────────────────────────────
+  function setTab(tab, el) {
+    activeTab = tab;
+    document.getElementById('view-resultados').style.display = tab === 'resultados' ? '' : 'none';
+    document.getElementById('view-crm').style.display = tab === 'crm' ? '' : 'none';
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    if (tab === 'crm') renderKanban();
+  }
+
+  // ── Búsqueda ────────────────────────────────────────────────────────
+  async function runSearch() {
+    const zonas = [...document.querySelectorAll('.check-group input:checked')].map(cb => cb.value);
+    if (!zonas.length) { showToast('Selecciona al menos una zona'); return; }
+
+    const filters = {
+      zonas,
+      tipo: document.getElementById('sel-tipo').value,
+      precioMax: parseInt(document.getElementById('inp-precio').value) || null,
+      estado: document.getElementById('sel-estado').value,
+    };
+
+    const btn = document.getElementById('btn-buscar');
+    btn.disabled = true;
+    btn.textContent = 'Buscando…';
+    document.getElementById('grid-results').innerHTML = '';
+    document.getElementById('empty-state').innerHTML = '<div class="spinner"></div><p style="margin-top:12px;color:#999">Consultando Idealista…</p>';
+    document.getElementById('empty-state').style.display = '';
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filters),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${response.status}`);
+      }
+
+      const data = await response.json();
+      currentResults = data.results || [];
+      renderResults();
+    } catch (err) {
+      console.warn('Backend no disponible, usando datos mock:', err.message);
+      showToast('Backend no disponible · Mostrando datos de ejemplo');
+      currentResults = mockFilter(ALL_PROPS, filters);
+      renderResults();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Buscar propiedades';
+    }
+  }
+
+  function mockFilter(props, { zonas, tipo, precioMax, estado }) {
+    return props.filter(p => {
+      if (!zonas.includes(p.zona)) return false;
+      if (tipo !== 'Ambos' && p.tipo !== tipo) return false;
+      if (precioMax && p.precio > precioMax) return false;
+      if (estado === 'reforma' && p.vs_media >= 0) return false;
+      return true;
+    }).sort((a, b) => a.vs_media - b.vs_media);
+  }
+
+  // ── Render resultados ───────────────────────────────────────────────
+  function renderResults() {
+    const grid = document.getElementById('grid-results');
+    const empty = document.getElementById('empty-state');
+
+    if (!currentResults.length) {
+      empty.innerHTML = '<div class="icon">🔍</div><p>Sin resultados para estos filtros</p>';
+      empty.style.display = '';
+      grid.innerHTML = '';
+      document.getElementById('resultado-count').textContent = '0 propiedades encontradas';
+      return;
+    }
+
+    empty.style.display = 'none';
+    document.getElementById('resultado-count').textContent =
+      `${currentResults.length} propiedad${currentResults.length !== 1 ? 'es' : ''} encontrada${currentResults.length !== 1 ? 's' : ''}`;
+    grid.innerHTML = currentResults.map(p => cardHTML(p)).join('');
+  }
+
+  function fmt(n) { return n ? n.toLocaleString('es-ES') + ' €' : '—'; }
+  function fmtM2(n) { return n ? n.toLocaleString('es-ES') + ' €/m²' : '—'; }
+
+  function cardHTML(p) {
+    const below = p.vs_media < 0;
+    const vsBadge = `<div class="vs-media ${below ? 'below' : 'above'}">
+      <div class="pct">${below ? '' : '+'}${p.vs_media}%</div>
+      <div class="label">${below ? 'por debajo' : 'por encima'} del precio de zona</div>
+    </div>`;
+
+    const linkBtn = p.url
+      ? `<a class="btn btn-link" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">Ver anuncio →</a>`
+      : '';
+
+    const crmEstado = crmData[p.id]?.estado || null;
+    const crmLabel = crmEstado ? `<span class="estado-dot estado-${crmEstado}"></span>${cap(crmEstado)}` : 'Añadir al CRM';
+
+    return `<div class="card" id="card-${p.id}">
+      <div class="card-img">${p.tipo === 'Villa' ? '🏡' : '🏘️'}</div>
+      <div class="card-body">
+        <div class="card-header">
+          <div class="card-title">${esc(p.titulo)}</div>
+          <span class="badge badge-${p.tipo.toLowerCase()}">${p.tipo}</span>
+        </div>
+        <div class="zona">📍 ${esc(p.zona)}</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-label">Precio</div><div class="stat-value">${fmt(p.precio)}</div></div>
+          <div class="stat"><div class="stat-label">€/m²</div><div class="stat-value">${fmtM2(p.precio_m2)}</div></div>
+          <div class="stat"><div class="stat-label">Superficie</div><div class="stat-value">${p.m2 || '—'} m²</div></div>
+          <div class="stat"><div class="stat-label">Hab · Baños</div><div class="stat-value">${p.habitaciones || '—'} · ${p.banos || '—'}</div></div>
+        </div>
+        ${vsBadge}
+        <div class="card-actions">
+          <button class="btn btn-pdf" onclick="printCard('${p.id}')">📄 PDF</button>
+          <button class="btn btn-crm" onclick="crmModal('${p.id}')">${crmLabel}</button>
+          ${linkBtn}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function esc(s) { return String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escapeAttr(s) { return String(s || '').replace(/"/g,'&quot;'); }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ── PDF ─────────────────────────────────────────────────────────────
+  function printCard(id) {
+    const p = currentResults.find(x => x.id === id);
+    if (!p) return;
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>Propiedad</title>
+    <style>body{font-family:Arial,sans-serif;padding:40px;max-width:700px;margin:auto}
+    h1{font-size:1.4rem;margin-bottom:8px}
+    .meta{color:#666;font-size:.9rem;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    td{padding:8px 12px;border:1px solid #ddd;font-size:.9rem}
+    td:first-child{background:#f5f5f5;font-weight:600;width:40%}
+    .vs{padding:12px;border-radius:6px;text-align:center;margin-bottom:20px;font-size:1.2rem;font-weight:700}
+    .below{background:#eafaf1;color:#1a7a42}.above{background:#fdf0f0;color:#a33}
+    p{font-size:.9rem;line-height:1.6;color:#444}</style></head><body>
+    <h1>${esc(p.titulo)}</h1>
+    <div class="meta">${esc(p.zona)} · ${p.tipo} · Ref: ${esc(p.ref)}</div>
+    <div class="vs ${p.vs_media < 0 ? 'below' : 'above'}">${p.vs_media < 0 ? '' : '+'}${p.vs_media}% respecto al precio medio de zona</div>
+    <table>
+      <tr><td>Precio</td><td>${fmt(p.precio)}</td></tr>
+      <tr><td>Precio/m²</td><td>${fmtM2(p.precio_m2)}</td></tr>
+      <tr><td>Superficie</td><td>${p.m2 || '—'} m²</td></tr>
+      <tr><td>Habitaciones</td><td>${p.habitaciones || '—'}</td></tr>
+      <tr><td>Baños</td><td>${p.banos || '—'}</td></tr>
+      ${p.ano ? `<tr><td>Año construcción</td><td>${p.ano}</td></tr>` : ''}
+    </table>
+    <p>${esc(p.desc)}</p>
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
+  }
+
+  // ── CRM ─────────────────────────────────────────────────────────────
+  const ESTADOS = ['nuevo','contactado','visitado','descartado'];
+
+  function crmModal(id) {
+    const p = currentResults.find(x => x.id === id);
+    if (!p) return;
+    const actual = crmData[id]?.estado || 'nuevo';
+    const opts = ESTADOS.map(e =>
+      `<button onclick="setCRM('${id}','${e}')" style="padding:8px 14px;margin:4px;border-radius:6px;border:2px solid ${actual===e?'#1a1a2e':'#ddd'};background:${actual===e?'#1a1a2e':'#fff'};color:${actual===e?'#fff':'#333'};cursor:pointer;font-size:.85rem">${cap(e)}</button>`
+    ).join('');
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:999';
+    d.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:360px;width:90%">
+      <h3 style="margin-bottom:8px;font-size:1rem">${esc(p.titulo)}</h3>
+      <p style="color:#888;font-size:.82rem;margin-bottom:16px">Cambiar estado CRM</p>
+      <div>${opts}</div>
+      <button onclick="this.closest('div[style]').remove()" style="margin-top:16px;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;cursor:pointer">Cerrar</button>
+    </div>`;
+    document.body.appendChild(d);
+    d.addEventListener('click', e => { if (e.target === d) d.remove(); });
+  }
+
+  function setCRM(id, estado) {
+    crmData[id] = { estado, titulo: currentResults.find(x=>x.id===id)?.titulo, precio: currentResults.find(x=>x.id===id)?.precio };
+    localStorage.setItem('crmData', JSON.stringify(crmData));
+    document.querySelector(`[onclick*="crmModal('${id}')"]`).innerHTML =
+      `<span class="estado-dot estado-${estado}"></span>${cap(estado)}`;
+    document.querySelectorAll('[style*="inset:0"]').forEach(el => el.remove());
+    if (activeTab === 'crm') renderKanban();
+    showToast(`Estado actualizado: ${cap(estado)}`);
+  }
+
+  function renderKanban() {
+    ESTADOS.forEach(e => {
+      const col = document.getElementById(`k-${e}`);
+      const items = Object.entries(crmData).filter(([,v]) => v.estado === e);
+      col.innerHTML = items.length
+        ? items.map(([id,v]) => `<div class="kanban-item"><div class="k-title">${esc(v.titulo||id)}</div><div class="k-precio">${fmt(v.precio)}</div></div>`).join('')
+        : '<p class="kanban-empty">Sin propiedades</p>';
+    });
+  }
+
+  // ── Toast ────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

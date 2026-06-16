@@ -66,6 +66,7 @@ function normalizeItem(item, zona) {
     fuente: 'Idealista',
     ref: String(item.propertyCode || item.id || ''),
     url: item.url ?? item.propertyUrl ?? item.link ?? '',
+    imagen: item.thumbnail ?? item.images?.[0] ?? item.photos?.[0] ?? item.mainImage ?? '',
   };
 }
 
